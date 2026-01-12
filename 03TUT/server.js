@@ -1,109 +1,51 @@
-const https = require('http');
-const path = require('path');
-const fs = require('fs');
-const fsPromises= require('fs').promises;
-
-const logEvents = require('./logEvents');
-const EventEmitter = require('events');
 const { log } = require('console');
-class Emitter extends EventEmitter { };
-//Initialize Object
-const myEmitter= new Emitter();
-myEmitter.on('log',(msg,fileName) => logEvents(msg,fileName));
+const express = require('express');
+const app = express();
+const path = require('path');
 const PORT = process.env.PORT || 3500;
 
-const serveFile = async (filePath, contentType, response)=>{
-    try{
-        const rawData=await fsPromises.readFile(
-            filePath,
-             !contentType.includes('image') ? 'utf8' : '');
-        const data = contentType === 'application/json'
-        ? JSON.parse(rawData) : rawData;
-        response.writeHead(
-            filePath.includes('404.html') ? 404 : 200,
-            {'Content-Type': contentType}
-        );
-        response.end(
-            contentType === 'application/json' ? JSON.stringify(data) : data
-        );
+app.get(['/', '/index', '/index.html'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'index.html'));
+});
 
-    } catch(err){
-        console.log(err);
-        myEmitter.emit('log', `${err.name}: ${err.method}`, 'errLog.txt');
-        response.statusCode = 500;
-        response.end();        
-    }
+app.get(['/new-page', '/new-page.html'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'new-page.html'));
+});
+
+
+app.get(['/old-page', '/old-page.html'], (req, res) => {
+  res.redirect(301, '/new-page.html'); //302 by default
+});
+
+  //Route Handlers
+app.get(['/hello.html', '/hello'],(req,res, next)=> {
+    console.log('attempted to load hello.html');
+    next()
+},  (req,res)=>{
+     res.send('Hello World!');
+});
+
+//Chaining route handlers 
+
+const one =(req,res,next) =>
+{
+  console.log('one');
+  next();
+}
+const two = (req,res,next) => {
+  console.log('two');
+  next();
+}
+const three = (req,res) => {
+  console.log('three');
+  res.send('Finished!');
 }
 
-const server = https.createServer((req,res)=>{
-    console.log(req.url, req.method);
-    myEmitter.emit('log', `${req.url}\t${req.method}`, 'reqLog.txt');
-    
-    const extension = path.extname(req.url);
+app.get(['/chain', '/chain.html'],[one , two ,three]);
 
-    let contentType;
-       
-    switch(extension){
-    case '.css':
-        contentType = 'text/css';
-        break;
-    case '.js':
-        contentType = 'text/javascript';
-        break;
-    case '.json':
-        contentType = 'application/json';
-        break;
-    case '.jpg':
-        contentType = 'image/jpg';
-        break;
-    case '.png':
-        contentType = 'image/png';
-        break;
-    case '.txt':
-        contentType = 'text/plain';
-        break;
-    default :
-        contentType = 'text/html';
-    }
-   
-    let filePath =
-        contentType === 'text/html' && req.url === '/'
-        ? path.join(__dirname, 'views', 'index.html')
-        : contentType === 'text/html' && req.url.slice(-1) === '/'
-        ? path.join(__dirname, 'views', req.url, 'index.html')
-        : contentType === 'text/html'
-        ? path.join(__dirname, 'views', req.url)
-        : path.join(__dirname, req.url);
-      
-    //makes .html extension not required in the browser
+//app.use = runs when no route matched
+ app.use((req,res)=> {
+  res.status(404).sendFile(path.join(__dirname,'views','404.html'));
+});
 
-      if(!extension && req.url.slice(-1)!== '/')
-      {
-        filePath+='.html';
-      }
-
-    const fileExists = fs.existsSync(filePath);
-
-    if(fileExists){
-       serveFile(filePath, contentType, res);
-    }
-    else{
-        switch(path.parse(filePath).base) 
-        {
-            case 'old-page.html':
-            res.writeHead(301, {'Location': '/new-page.html'});
-                res.end();
-                break;
-            case 'www-page.html':
-            res.writeHead(301, {'Location': '/'});
-            res.end();
-            break;
-            default:
-                //serve A 404 Response
-            serveFile(path.join(__dirname,'views','404.html'), 'text/html', res);
-        }
-    }
-        });
-server.listen(PORT, () => console.log(`Server Running on port ${PORT}`));
-
-
+app.listen(PORT, () => console.log(`Server Running on port ${PORT}`));

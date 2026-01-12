@@ -1,7 +1,7 @@
 {
   "name": "node_js",
   "version": "1.0.0",
-  "description": "",
+  "description": "Express Tutorial",
   "main": "server.js",
   "scripts": {
     "start": "node server",
@@ -21,6 +21,7 @@
   "homepage": "https://github.com/Zuhn0/node_js#readme",
   "dependencies": {
     "date-fns": "^4.1.0",
+    "express": "^5.2.1",
     "uuid": "^13.0.0"
   },
   "devDependencies": {
